@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Project Manager</title>
+
+  <!-- Google Fonts — gives us a clean, modern look -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ============================================
+       CSS VARIABLES
+       Think of these as "settings" for your design.
+       Change a color here and it updates everywhere.
+    ============================================ */
+    :root {
+      --bg:         #f5f4f0;
+      --surface:    #ffffff;
+      --border:     #e2e0da;
+      --text:       #1a1917;
+      --muted:      #7a7870;
+      --accent:     #2563eb;
+      --green:      #16a34a;
+      --green-bg:   #dcfce7;
+      --amber:      #b45309;
+      --amber-bg:   #fef3c7;
+      --red:        #dc2626;
+      --red-bg:     #fee2e2;
+      --radius:     12px;
+      --shadow:     0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* ============================================
+       RESET & BASE STYLES
+       Removes browser defaults so we start fresh.
+    ============================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ============================================
+       LAYOUT
+       Centers the app and sets max width.
+    ============================================ */
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* ============================================
+       HEADER
+    ============================================ */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .header .subtitle {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .date {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* ============================================
+       STATS CARDS
+       4 summary numbers at the top.
+    ============================================ */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+      gap: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .stat-card .value {
+      font-size: 1.75rem;
+      font-weight: 600;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ============================================
+       PROGRESS BAR
+       Shows % of tasks completed.
+    ============================================ */
+    .progress-wrap {
+      background: var(--border);
+      border-radius: 99px;
+      height: 6px;
+      margin-bottom: 1.75rem;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--green);
+      border-radius: 99px;
+      /* CSS transition = smooth animation when width changes */
+      transition: width 0.4s ease;
+      width: 0%; /* JavaScript will update this */
+    }
+
+    /* ============================================
+       ADD TASK FORM
+    ============================================ */
+    .add-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow);
+      flex-wrap: wrap; /* wraps on small screens */
+    }
+
+    /* Text input */
+    .add-form input[type="text"] {
+      flex: 1;
+      min-width: 180px;
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .add-form input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    /* Dropdown selects */
+    .add-form select {
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      color: var(--text);
+      background: var(--bg);
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Add button */
+    .btn-add {
+      height: 40px;
+      padding: 0 20px;
+      background: var(--text);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-add:hover  { opacity: 0.85; }
+    .btn-add:active { transform: scale(0.97); }
+
+    /* ============================================
+       FILTER BUTTONS
+    ============================================ */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 6px 16px;
+      border: 1px solid var(--border);
+      border-radius: 99px; /* pill shape */
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.825rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    /* Active filter gets a filled background */
+    .filter-btn.active {
+      background: var(--text);
+      color: white;
+      border-color: var(--text);
+    }
+
+    /* ============================================
+       TASK LIST & TASK CARDS
+    ============================================ */
+    .task-list {
+      display: flex;
+      flex-direction: column; /* stacks cards vertically */
+      gap: 8px;
+    }
+
+    /* Each task is a card */
+    .task-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--shadow);
+      /* Animate in when added */
+      animation: slideIn 0.2s ease;
+      transition: opacity 0.2s;
+    }
+
+    /* Fade out done tasks a bit */
+    .task-card.done {
+      opacity: 0.55;
+    }
+
+    /* Strikethrough the task name when done */
+    .task-card.done .task-name {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    /* Animation: cards slide up when they appear */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============================================
+       CHECKBOX (custom circle design)
+    ============================================ */
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .checkbox:hover {
+      border-color: var(--green);
+    }
+
+    /* When checked: green circle with a checkmark */
+    .checkbox.checked {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    /* The checkmark (made with CSS borders, no image needed) */
+    .checkbox.checked::after {
+      content: '';
+      display: block;
+      width: 5px;
+      height: 9px;
+      border: 2px solid white;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg) translateY(-1px);
+    }
+
+    /* ============================================
+       TASK INFO (name + category)
+    ============================================ */
+    .task-info {
+      flex: 1;
+      min-width: 0; /* prevents text overflow */
+    }
+
+    .task-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      /* Truncate long task names with "..." */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .task-category {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ============================================
+       PRIORITY BADGES
+       Color-coded labels (High / Medium / Low)
+    ============================================ */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .badge-high   { background: var(--red-bg);   color: var(--red);   }
+    .badge-med    { background: var(--amber-bg);  color: var(--amber); }
+    .badge-low    { background: var(--green-bg);  color: var(--green); }
+
+    /* ============================================
+       DELETE BUTTON
+    ============================================ */
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: all 0.15s;
+    }
+
+    .btn-delete:hover {
+      background: var(--red-bg);
+      color: var(--red);
+    }
+
+    /* ============================================
+       EMPTY STATE
+       Shown when no tasks match the filter
+    ============================================ */
+    .empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .empty .emoji {
+      font-size: 2rem;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       On small screens (phones), show 2 stat columns
+    ============================================ */
+    @media (max-width: 500px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .header { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+
+    <!-- ==========================================
+         HEADER
+    =========================================== -->
+    <div class="header">
+      <div>
+        <h1>My project manager</h1>
+        <p class="subtitle">Track your tasks and stay organized</p>
+      </div>
+      <!-- id="date" lets JavaScript fill in today's date -->
+      <span class="date" id="date"></span>
+    </div>
+
+    <!-- ==========================================
+         STATS CARDS
+         JavaScript will update these numbers.
+    =========================================== -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="label">Total tasks</div>
+        <div class="value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Completed</div>
+        <div class="value" id="stat-done">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">In progress</div>
+        <div class="value" id="stat-active">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Done %</div>
+        <div class="value" id="stat-pct">0%</div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         PROGRESS BAR
+    =========================================== -->
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <!-- ==========================================
+         ADD TASK FORM
+         When user clicks + Add, addTask() runs.
+         When user presses Enter, the keydown listener runs addTask() too.
+    =========================================== -->
+    <div class="add-form">
+      <input
+        type="text"
+        id="task-input"
+        placeholder="What needs to be done?"
+      />
+      <select id="priority-select">
+        <option value="med">Medium priority</option>
+        <option value="high">High priority</option>
+        <option value="low">Low priority</option>
+      </select>
+      <select id="category-select">
+        <option value="Planning">Planning</option>
+        <option value="Design">Design</option>
+        <option value="Development">Development</option>
+        <option value="Review">Review</option>
+        <option value="Research">Research</option>
+      </select>
+      <button class="btn-add" onclick="addTask()">+ Add task</button>
+    </div>
+
+    <!-- ==========================================
+         FILTER BUTTONS
+    =========================================== -->
+    <div class="filters">
+      <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="filter-btn" onclick="setFilter('active', this)">Active</button>
+      <button class="filter-btn" onclick="setFilter('done', this)">Done</button>
+      <button class="filter-btn" onclick="setFilter('high', this)">High priority</button>
+    </div>
+
+    <!-- ==========================================
+         TASK LIST
+         This div is empty in HTML.
+         JavaScript fills it with task cards.
+    =========================================== -->
+    <div class="task-list" id="task-list"></div>
+
+  </div><!-- end .app -->
+
+
+  <!-- ============================================================
+       JAVASCRIPT
+       All the app logic lives here, at the bottom of the page.
+       (Putting scripts at the bottom means the HTML loads first.)
+  ============================================================ -->
+  <script>
+
+    // ================================================
+    // DATA
+    // This array stores all tasks.
+    // Each task is an object with id, name, priority, category, done.
+    // ================================================
+    let tasks = [
+      { id: 1, name: 'Define project scope and goals',            priority: 'high', category: 'Planning',     done: true  },
+      { id: 2, name: 'Create wireframes for main screens',        priority: 'high', category: 'Design',       done: false },
+      { id: 3, name: 'Set up GitHub repository',                  priority: 'med',  category: 'Development',  done: true  },
+      { id: 4, name: 'Write user stories and acceptance criteria', priority: 'med',  category: 'Planning',     done: false },
+      { id: 5, name: 'Build homepage HTML structure',             priority: 'low',  category: 'Development',  done: false },
+    ];
+
+    // This number increases every time we add a task,
+    // so each task gets a unique ID.
+    let nextId = 6;
+
+    // Tracks which filter is active ('all', 'active', 'done', 'high')
+    let currentFilter = 'all';
+
+
+    // ================================================
+    // SETUP: Show today's date
+    // ================================================
+    document.getElementById('date').textContent = new Date().toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+
+    // ================================================
+    // PRESS ENTER TO ADD A TASK
+    // "keydown" fires every time a key is pressed.
+    // ================================================
+    document.getElementById('task-input').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        addTask();
+      }
+    });
+
+
+    // ================================================
+    // addTask()
+    // Reads the form, creates a new task, adds it to the array.
+    // ================================================
+    function addTask() {
+      // 1. Get the text the user typed
+      const input = document.getElementById('task-input');
+      const name = input.value.trim(); // .trim() removes extra spaces
+
+      // 2. Don't add empty tasks
+      if (!name) {
+        input.focus(); // put cursor back in the input
+        return;
+      }
+
+      // 3. Read the selected priority and category
+      const priority = document.getElementById('priority-select').value;
+      const category = document.getElementById('category-select').value;
+
+      // 4. Create a new task object and push it to the array
+      tasks.push({
+        id: nextId,      // unique ID
+        name: name,
+        priority: priority,
+        category: category,
+        done: false      // new tasks start as not done
+      });
+      nextId++; // increase the counter for next time
+
+      // 5. Clear the input field
+      input.value = '';
+      input.focus();
+
+      // 6. Redraw the page with the new task
+      render();
+    }
+
+
+    // ================================================
+    // toggleTask(id)
+    // Flips a task between done and not done.
+    // ================================================
+    function toggleTask(id) {
+      // Find the task with matching ID and flip its .done value
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.done = !task.done; // ! means "opposite of"
+      }
+      render(); // redraw
+    }
+
+
+    // ================================================
+    // deleteTask(id)
+    // Removes a task from the array permanently.
+    // ================================================
+    function deleteTask(id) {
+      // .filter() returns a NEW array without the deleted task
+      tasks = tasks.filter(t => t.id !== id);
+      render(); // redraw
+    }
+
+
+    // ================================================
+    // setFilter(filter, buttonElement)
+    // Changes which tasks are visible.
+    // ================================================
+    function setFilter(filter, clickedButton) {
+      currentFilter = filter;
+
+      // Remove 'active' class from ALL filter buttons
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Add 'active' class to the button that was clicked
+      clickedButton.classList.add('active');
+
+      render(); // redraw with new filter
+    }
+
+
+    // ================================================
+    // render()
+    // THE MAIN FUNCTION — redraws everything on screen.
+    // Called after every change to the tasks array.
+    // ================================================
+    function render() {
+
+      // --- Update stats ---
+      const total  = tasks.length;
+      const done   = tasks.filter(t => t.done).length;
+      const active = total - done;
+      const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      document.getElementById('stat-total').textContent  = total;
+      document.getElementById('stat-done').textContent   = done;
+      document.getElementById('stat-active').textContent = active;
+      document.getElementById('stat-pct').textContent    = pct + '%';
+      document.getElementById('progress-bar').style.width = pct + '%';
+
+      // --- Filter tasks ---
+      // Decide which tasks to show based on currentFilter
+      let visibleTasks = tasks; // default: show all
+
+      if (currentFilter === 'active') {
+        visibleTasks = tasks.filter(t => !t.done);
+      } else if (currentFilter === 'done') {
+        visibleTasks = tasks.filter(t => t.done);
+      } else if (currentFilter === 'high') {
+        visibleTasks = tasks.filter(t => t.priority === 'high');
+      }
+
+      // --- Build the task list HTML ---
+      const listEl = document.getElementById('task-list');
+
+      // If no tasks match the filter, show an empty state message
+      if (visibleTasks.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty">
+            <span class="emoji">📭</span>
+            No tasks here yet. Add one above!
+          </div>
+        `;
+        return; // stop here, nothing more to do
+      }
+
+      // Otherwise, build a card for each task
+      // .map() transforms each task into an HTML string
+      // .join('') combines all the strings into one big string
+      listEl.innerHTML = visibleTasks.map(task => {
+
+        // Choose the badge class based on priority
+        const badgeClass = task.priority === 'high' ? 'badge-high'
+                         : task.priority === 'low'  ? 'badge-low'
+                         : 'badge-med';
+
+        // Choose the badge label
+        const badgeLabel = task.priority === 'high' ? 'High'
+                         : task.priority === 'low'  ? 'Low'
+                         : 'Medium';
+
+        // Return the HTML for one task card
+        // Template literals (backticks) let us put variables inside HTML using ${}
+        return `
+          <div class="task-card ${task.done ? 'done' : ''}">
+
+            <!-- Checkbox — clicking calls toggleTask with this task's ID -->
+            <div
+              class="checkbox ${task.done ? 'checked' : ''}"
+              onclick="toggleTask(${task.id})"
+              title="Mark as ${task.done ? 'incomplete' : 'complete'}"
+            ></div>
+
+            <!-- Task name and category -->
+            <div class="task-info">
+              <div class="task-name">${task.name}</div>
+              <div class="task-category">${task.category}</div>
+            </div>
+
+            <!-- Priority badge -->
+            <span class="badge ${badgeClass}">${badgeLabel}</span>
+
+            <!-- Delete button — clicking calls deleteTask with this task's ID -->
+            <button
+              class="btn-delete"
+              onclick="deleteTask(${task.id})"
+              title="Delete task"
+            >&#x2715;</button>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+
+    // ================================================
+    // START THE APP
+    // Run render() once when the page loads
+    // so we see the starter tasks immediately.
+    // ================================================
+    render();
+
+  </script>
+</body>
+</html>
