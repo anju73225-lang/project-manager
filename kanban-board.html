@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kanban Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ============================================
+       CSS VARIABLES — your design "settings"
+    ============================================ */
+    :root {
+      --bg:         #f0ede8;
+      --surface:    #ffffff;
+      --border:     #e0ddd8;
+      --text:       #18181b;
+      --muted:      #78777a;
+      --radius:     14px;
+
+      /* Column accent colors */
+      --todo-color:     #6366f1;
+      --todo-bg:        #eef2ff;
+      --inprog-color:   #f59e0b;
+      --inprog-bg:      #fffbeb;
+      --review-color:   #8b5cf6;
+      --review-bg:      #f5f3ff;
+      --done-color:     #10b981;
+      --done-bg:        #ecfdf5;
+
+      /* Priority colors */
+      --pri-high:   #dc2626;
+      --pri-high-bg:#fee2e2;
+      --pri-med:    #d97706;
+      --pri-med-bg: #fef3c7;
+      --pri-low:    #16a34a;
+      --pri-low-bg: #dcfce7;
+    }
+
+    /* ============================================
+       RESET & BASE
+    ============================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    /* ============================================
+       HEADER
+    ============================================ */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* Add task form in the header */
+    .add-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .add-form input,
+    .add-form select {
+      height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+    }
+
+    .add-form input { width: 220px; }
+    .add-form input:focus { border-color: #6366f1; }
+
+    .btn-add {
+      height: 38px;
+      padding: 0 18px;
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-add:hover { opacity: 0.8; }
+
+    /* ============================================
+       BOARD — the 4-column grid
+       CSS Grid makes the columns automatically
+       equal width and fills the screen.
+    ============================================ */
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      align-items: start; /* columns don't stretch to match tallest */
+    }
+
+    /* ============================================
+       COLUMN
+    ============================================ */
+    .column {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      min-height: 200px;
+
+      /*
+        DRAG & DROP KEY RULE:
+        The column is a "drop zone". We need to
+        signal this to the browser via JS events.
+        We also add a visual highlight when a card
+        is being dragged over this column.
+      */
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    /* Highlight a column when a card hovers over it */
+    .column.drag-over {
+      border-color: #6366f1;
+      background: #f5f5ff;
+    }
+
+    /* Column header area */
+    .col-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .col-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    /* Colored dot next to column title */
+    .col-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Task count badge (e.g. "3") */
+    .col-count {
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--bg);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+    }
+
+    /* ============================================
+       CARD STACK (where cards live inside a column)
+    ============================================ */
+    .card-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 60px; /* so empty columns still accept drops */
+    }
+
+    /* ============================================
+       CARD
+       This is the draggable element.
+    ============================================ */
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 0.875rem;
+
+      /*
+        cursor: grab — shows a grab hand when hovering.
+        This tells the user "you can drag me".
+      */
+      cursor: grab;
+      user-select: none; /* prevents text selection while dragging */
+
+      transition: box-shadow 0.15s, transform 0.15s, opacity 0.15s;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      transform: translateY(-1px);
+    }
+
+    /*
+      When a card IS being dragged, we make it
+      semi-transparent so the user can see what's
+      underneath it on the board.
+    */
+    .card.dragging {
+      opacity: 0.45;
+      cursor: grabbing;
+      transform: scale(0.98);
+    }
+
+    /* Card top row: title + delete button */
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      flex-shrink: 0;
+      border-radius: 4px;
+      transition: color 0.1s, background 0.1s;
+    }
+    .btn-delete:hover { color: #dc2626; background: #fee2e2; }
+
+    /* Card bottom row: assignee + priority badge */
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .card-assignee {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* Priority badge */
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-high   { background: var(--pri-high-bg); color: var(--pri-high); }
+    .badge-med    { background: var(--pri-med-bg);  color: var(--pri-med); }
+    .badge-low    { background: var(--pri-low-bg);  color: var(--pri-low); }
+
+    /* ============================================
+       COLUMN COLOR ACCENTS
+       Each column header dot gets its own color.
+    ============================================ */
+    [data-col="todo"]     .col-dot { background: var(--todo-color); }
+    [data-col="inprog"]   .col-dot { background: var(--inprog-color); }
+    [data-col="review"]   .col-dot { background: var(--review-color); }
+    [data-col="done"]     .col-dot { background: var(--done-color); }
+
+    /* ============================================
+       RESPONSIVE: stack columns on small screens
+    ============================================ */
+    @media (max-width: 900px) {
+      .board { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 550px) {
+      .board { grid-template-columns: 1fr; }
+      .add-form input { width: 160px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ==========================================
+       HEADER
+  =========================================== -->
+  <header>
+    <div>
+      <h1>Sprint board</h1>
+    </div>
+
+    <!-- Add Task Form -->
+    <div class="add-form">
+      <input type="text" id="task-input" placeholder="New task name..." />
+      <select id="priority-select">
+        <option value="med">Medium</option>
+        <option value="high">High</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="assignee-select">
+        <option value="You">You</option>
+        <option value="Alex">Alex</option>
+        <option value="Sara">Sara</option>
+        <option value="Unassigned">Unassigned</option>
+      </select>
+      <select id="column-select">
+        <option value="todo">To Do</option>
+        <option value="inprog">In Progress</option>
+        <option value="review">Review</option>
+        <option value="done">Done</option>
+      </select>
+      <button class="btn-add" onclick="addCard()">+ Add</button>
+    </div>
+  </header>
+
+  <!-- ==========================================
+       BOARD with 4 COLUMNS
+
+       Each column has:
+       - data-col="..." attribute (used by JavaScript)
+       - A header with a colored dot, title, and count
+       - A .card-stack div where cards live
+  =========================================== -->
+  <div class="board" id="board">
+
+    <!-- COLUMN 1: To Do -->
+    <div class="column" data-col="todo">
+      <div class="col-header">
+        <div class="col-title">
+          <div class="col-dot"></div>
+          To Do
+        </div>
+        <span class="col-count" id="count-todo">0</span>
+      </div>
+      <div class="card-stack" id="stack-todo"></div>
+    </div>
+
+    <!-- COLUMN 2: In Progress -->
+    <div class="column" data-col="inprog">
+      <div class="col-header">
+        <div class="col-title">
+          <div class="col-dot"></div>
+          In Progress
+        </div>
+        <span class="col-count" id="count-inprog">0</span>
+      </div>
+      <div class="card-stack" id="stack-inprog"></div>
+    </div>
+
+    <!-- COLUMN 3: Review -->
+    <div class="column" data-col="review">
+      <div class="col-header">
+        <div class="col-title">
+          <div class="col-dot"></div>
+          Review
+        </div>
+        <span class="col-count" id="count-review">0</span>
+      </div>
+      <div class="card-stack" id="stack-review"></div>
+    </div>
+
+    <!-- COLUMN 4: Done -->
+    <div class="column" data-col="done">
+      <div class="col-header">
+        <div class="col-title">
+          <div class="col-dot"></div>
+          Done
+        </div>
+        <span class="col-count" id="count-done">0</span>
+      </div>
+      <div class="card-stack" id="stack-done"></div>
+    </div>
+
+  </div><!-- end .board -->
+
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+
+    // ================================================
+    // DATA — all tasks stored in an array
+    // column = which column the card lives in
+    // ================================================
+    let cards = [
+      { id: 1, title: 'Define project requirements',    priority: 'high', assignee: 'You',  column: 'todo'   },
+      { id: 2, title: 'Design wireframes',              priority: 'high', assignee: 'Sara', column: 'todo'   },
+      { id: 3, title: 'Set up GitHub repository',       priority: 'med',  assignee: 'You',  column: 'inprog' },
+      { id: 4, title: 'Build navigation component',     priority: 'med',  assignee: 'Alex', column: 'inprog' },
+      { id: 5, title: 'Write user story templates',     priority: 'low',  assignee: 'Sara', column: 'review' },
+      { id: 6, title: 'Kick-off meeting notes',         priority: 'low',  assignee: 'You',  column: 'done'   },
+    ];
+
+    let nextId = 7;
+
+    // This variable remembers WHICH card is being dragged.
+    // We set it in dragstart and read it in drop.
+    let draggedCardId = null;
+
+
+    // ================================================
+    // PRESS ENTER TO ADD A CARD
+    // ================================================
+    document.getElementById('task-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addCard();
+    });
+
+
+    // ================================================
+    // addCard()
+    // Creates a new card and adds it to the data array.
+    // ================================================
+    function addCard() {
+      const input = document.getElementById('task-input');
+      const title = input.value.trim();
+      if (!title) { input.focus(); return; }
+
+      cards.push({
+        id:       nextId++,
+        title:    title,
+        priority: document.getElementById('priority-select').value,
+        assignee: document.getElementById('assignee-select').value,
+        column:   document.getElementById('column-select').value,
+      });
+
+      input.value = '';
+      input.focus();
+      render();
+    }
+
+
+    // ================================================
+    // deleteCard(id)
+    // Removes a card from the array.
+    // ================================================
+    function deleteCard(id) {
+      cards = cards.filter(c => c.id !== id);
+      render();
+    }
+
+
+    // ================================================
+    // DRAG AND DROP — the 3 key functions
+    // ================================================
+
+    /*
+      handleDragStart(id)
+      Fires when the user STARTS dragging a card.
+      We remember which card is being dragged.
+    */
+    function handleDragStart(id) {
+      draggedCardId = id;
+
+      // Find the card element and add the .dragging class
+      // (makes it semi-transparent — see CSS above)
+      const cardEl = document.querySelector(`[data-id="${id}"]`);
+      if (cardEl) {
+        // Small delay so the "ghost" image renders before we fade it
+        setTimeout(() => cardEl.classList.add('dragging'), 0);
+      }
+    }
+
+    /*
+      handleDragOver(event, colId)
+      Fires continuously while a card is hovering over a column.
+
+      IMPORTANT: You MUST call event.preventDefault() here.
+      By default, browsers don't allow dropping on elements.
+      Calling preventDefault() tells the browser "yes, this is a valid drop target."
+    */
+    function handleDragOver(event, colId) {
+      event.preventDefault(); // <-- this line is essential!
+
+      // Highlight the column the card is hovering over
+      document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+      const col = document.querySelector(`[data-col="${colId}"]`);
+      if (col) col.classList.add('drag-over');
+    }
+
+    /*
+      handleDrop(colId)
+      Fires when the user RELEASES the card over a column.
+      We update the card's column in our data, then redraw.
+    */
+    function handleDrop(colId) {
+      if (draggedCardId === null) return;
+
+      // Find the card in our array and change its column
+      const card = cards.find(c => c.id === draggedCardId);
+      if (card) {
+        card.column = colId; // <-- this is the actual "move"
+      }
+
+      // Clean up
+      draggedCardId = null;
+      document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+
+      render(); // redraw the board with the card in its new column
+    }
+
+    /*
+      handleDragEnd()
+      Fires when dragging ends (even if dropped nowhere valid).
+      Cleans up any leftover styles.
+    */
+    function handleDragEnd() {
+      draggedCardId = null;
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging'));
+      document.querySelectorAll('.column').forEach(col => col.classList.remove('drag-over'));
+    }
+
+
+    // ================================================
+    // render()
+    // Redraws all 4 columns. Called after every change.
+    // ================================================
+    function render() {
+      const columns = ['todo', 'inprog', 'review', 'done'];
+
+      columns.forEach(colId => {
+        // Get all cards that belong to this column
+        const colCards = cards.filter(c => c.column === colId);
+
+        // Update the count badge
+        document.getElementById(`count-${colId}`).textContent = colCards.length;
+
+        // Get the card stack element for this column
+        const stack = document.getElementById(`stack-${colId}`);
+
+        // Build the HTML for all cards in this column
+        stack.innerHTML = colCards.map(card => {
+
+          // Badge class based on priority
+          const badgeClass = card.priority === 'high' ? 'badge-high'
+                           : card.priority === 'low'  ? 'badge-low'
+                           : 'badge-med';
+          const badgeLabel = card.priority === 'high' ? 'High'
+                           : card.priority === 'low'  ? 'Low'
+                           : 'Med';
+
+          /*
+            KEY DRAG AND DROP ATTRIBUTES on the card div:
+
+            draggable="true"
+              Tells the browser this element can be dragged.
+
+            ondragstart="handleDragStart(${card.id})"
+              When dragging starts, remember this card's ID.
+
+            ondragend="handleDragEnd()"
+              When dragging ends, clean up.
+
+            data-id="${card.id}"
+              Lets us find this specific card element in the DOM.
+          */
+          return `
+            <div
+              class="card"
+              draggable="true"
+              data-id="${card.id}"
+              ondragstart="handleDragStart(${card.id})"
+              ondragend="handleDragEnd()"
+            >
+              <div class="card-top">
+                <div class="card-title">${card.title}</div>
+                <button class="btn-delete" onclick="deleteCard(${card.id})" title="Delete">&#x2715;</button>
+              </div>
+              <div class="card-meta">
+                <span class="card-assignee">${card.assignee}</span>
+                <span class="badge ${badgeClass}">${badgeLabel}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        /*
+          KEY DRAG AND DROP ATTRIBUTES on the card-stack (drop zone):
+
+          ondragover="handleDragOver(event, '${colId}')"
+            Fires when something is dragged over this column.
+            We MUST pass the event object to call preventDefault().
+
+          ondrop="handleDrop('${colId}')"
+            Fires when a card is dropped here.
+            We update the card's column and redraw.
+        */
+        stack.setAttribute('ondragover', `handleDragOver(event, '${colId}')`);
+        stack.setAttribute('ondrop', `handleDrop('${colId}')`);
+      });
+    }
+
+
+    // ================================================
+    // START THE APP
+    // ================================================
+    render();
+
+  </script>
+</body>
+</html>
